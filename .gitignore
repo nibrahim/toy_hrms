@@ -1,0 +1,6 @@
+scratch
+*.log
+*.pyc
+__pycache__
+.coverage
+*.csv
