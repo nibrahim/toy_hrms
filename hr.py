@@ -37,9 +37,12 @@ def parse_args():
 def handle_initdb(args):
     with open("data/init.sql") as f:
         sql = f.read()
-        print (sql)
+        logger.debug(sql)
     try:
         con = psycopg2.connect(dbname=args.dbname)
+        cur = con.cursor()
+        cur.execute(sql)
+        con.commit()
     except psycopg2.OperationalError as e:
         raise HRException(f"Database '{args.dbname}' doesn't exist")
 
