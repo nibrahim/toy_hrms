@@ -4,8 +4,10 @@ import logging
 import sys
 
 import psycopg2
-# # free line
-# import our own (alphabetical order)
+import sqlalchemy as sa
+
+import db
+
 
 class HRException(Exception): pass
 
@@ -57,27 +59,34 @@ def parse_args():
 
 
 def handle_initdb(args):
-    with open("data/init.sql") as f:
-        sql = f.read()
-        logger.debug(sql)
-    try:
-        con = psycopg2.connect(dbname=args.dbname)
-        cur = con.cursor()
-        cur.execute(sql)
-        con.commit()
-    except psycopg2.OperationalError as e:
-        raise HRException(f"Database '{args.dbname}' doesn't exist")
+    db_uri = f"postgresql:///{args.dbname}"
+    db.create_all(db_uri)
+    session = db.get_session(db_uri)
+    d1 = db.Designation(title="CEO", max_leaves=20)
+    d2 = db.Designation(title="Engineer", max_leaves=10)
+    session.add(d1)
+    session.add(d2)
+    session.commit()
 
 def handle_import(args):
-    con = psycopg2.connect(dbname=args.dbname)
-    cur = con.cursor()
+    db_uri = f"postgresql:///{args.dbname}"
+    session = db.get_session(db_uri)
+
     with open(args.employees_file) as f:
         reader = csv.reader(f)
-        for lname, fname, designation, email, phone in reader:
+        for lname, fname, title, email, phone in reader:
+            
+            q = sa.select(db.Designation).where(db.Designation.title==title)
+            designation = session.execute(q).scalar_one()
+            
             logger.debug("Inserting %s", email)
-            query = "insert into employees(lname, fname, designation, email, phone) values (%s, %s, %s, %s, %s)"
-            cur.execute(query, (lname, fname, designation, email, phone))
-        con.commit()
+            employee = db.Employee(lname=lname,
+                                   fname=fname,
+                                   title=designation,
+                                   email=email,
+                                   phone=phone)
+            session.add(employee)
+        session.commit()
     
 def handle_query(args):
     con = psycopg2.connect(dbname=args.dbname)
