@@ -6,7 +6,8 @@ import sys
 import psycopg2
 import sqlalchemy as sa
 
-import db
+import models
+import web
 
 
 class HRException(Exception): pass
@@ -47,6 +48,8 @@ def parse_args():
     subparsers = parser.add_subparsers(dest="op")
     subparsers.add_parser("initdb", help="initialise the database")
 
+    web_parser = subparsers.add_parser("web", help="Start web server")
+    
     import_parser = subparsers.add_parser("import", help="Import data from csv file")
     import_parser.add_argument("employees_file", help="List of employees to import")
 
@@ -60,27 +63,27 @@ def parse_args():
 
 def handle_initdb(args):
     db_uri = f"postgresql:///{args.dbname}"
-    db.create_all(db_uri)
-    session = db.get_session(db_uri)
-    d1 = db.Designation(title="CEO", max_leaves=20)
-    d2 = db.Designation(title="Engineer", max_leaves=10)
+    models.create_all(db_uri)
+    session = models.get_session(db_uri)
+    d1 = models.Designation(title="CEO", max_leaves=20)
+    d2 = models.Designation(title="Engineer", max_leaves=10)
     session.add(d1)
     session.add(d2)
     session.commit()
 
 def handle_import(args):
     db_uri = f"postgresql:///{args.dbname}"
-    session = db.get_session(db_uri)
+    session = models.get_session(db_uri)
 
     with open(args.employees_file) as f:
         reader = csv.reader(f)
         for lname, fname, title, email, phone in reader:
             
-            q = sa.select(db.Designation).where(db.Designation.title==title)
+            q = sa.select(models.Designation).where(models.Designation.title==title)
             designation = session.execute(q).scalar_one()
             
             logger.debug("Inserting %s", email)
-            employee = db.Employee(lname=lname,
+            employee = models.Employee(lname=lname,
                                    fname=fname,
                                    title=designation,
                                    email=email,
@@ -106,9 +109,10 @@ Phone       : {phone}""")
 
     con.close()
             
-
-
-    
+def handle_web(args):
+    web.app.config["SQLALCHEMY_DATABASE_URI"] = f"postgresql:///{args.dbname}"
+    web.db.init_app(web.app)
+    web.app.run()
 
 
 def main():
@@ -117,7 +121,8 @@ def main():
         init_logger(args.v)
         ops = {"initdb" : handle_initdb,
                "import" : handle_import,
-               "query" : handle_query}
+               "web"    : handle_web,
+               "query"  : handle_query}
         ops[args.op](args)
     except HRException as e:
         logger.error("Program aborted, %s", e)
