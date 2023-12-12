@@ -21,8 +21,6 @@ class Employee(HRDBBase):
     phone: Mapped[str] =  mapped_column(String(50))
     title_id: Mapped[int] = mapped_column(ForeignKey('hrms_designations.id'))
     title: Mapped["Designation"] = relationship(back_populates = "employees")
-    max_leaves: 
-    leaves_taken: 
 
 class Designation(HRDBBase):
     __tablename__ = "hrms_designations"
