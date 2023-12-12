@@ -1,45 +1,44 @@
 import flask
 
+
 import models
+
+
 
 app = flask.Flask("hrms")
 db = models.SQLAlchemy(model_class=models.HRDBBase)
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def index():
-    return """<html>
-    <head>
-    <title> HRMS </title>
-    </head>
-    <body>
-    <h1> Welcome to Hamon HRMS </h1>
-    <p>
-    <a href="/employees">List of employees</a>
-    </p>
-    </body>
-</html>
-"""
+    if flask.request.method == "GET":
+        return flask.render_template("index.html")
+    elif flask.request.method == "POST":
+        return "Posted!"
+
 
 @app.route("/employees")
 def employees():
     query = db.select(models.Employee).order_by(models.Employee.fname)
     users = db.session.execute(query).scalars()
-    userlist = []
-    for i in users:
-        userlist.append(f"<li>{i.fname}</li")
+    return flask.render_template("userlist.html", users = users)
 
-    return f"""<html>
-    <head>
-    <title> HRMS </title>
-    </head>
-    <body>
-    <h1> List of employees</h1>
-    <ol>
-    {"".join(userlist)}
-    </ol>
-    </body>
-</html>
-"""
+
+# @app.route("/employees/<int:empid>")
+# def employee_details(empid):
+#     query = db.select(models.Employee).where(models.Employee.id == empid)
+#     user = db.session.execute(query).scalar()
+#     return flask.render_template("userdetails2.html", user = user)
+
+@app.route("/employees/<int:empid>")
+def employee_details(empid):
+    query = db.select(models.Employee).where(models.Employee.id == empid)
+    user = db.session.execute(query).scalar()
+    ret = {"fname" : user.fname,
+           "lname" : user.lname,
+           "title" : user.title.title,
+           "email" : user.email,
+           "phone" : user.phone}
+    return flask.jsonify(ret)
 
 
 
